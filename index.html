@@ -1,0 +1,276 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <link rel="icon" href="data:,">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Watcher Loading</title>
+  <style>
+    :root{--radius:16px;--shadow:0 12px 35px rgba(0,0,0,.35);--text:#f4f4f4;--muted:rgba(244,244,244,.72);--btn:rgba(255,255,255,.10);--btnHover:rgba(255,255,255,.16);}
+    html,body{height:100%;margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:#070707;color:var(--text);}
+    .bg{position:fixed;inset:0;background:
+      radial-gradient(1200px 600px at 50% 15%, rgba(255,255,255,.06), transparent 55%),
+      radial-gradient(800px 500px at 20% 80%, rgba(120,220,255,.08), transparent 55%),
+      radial-gradient(900px 600px at 80% 70%, rgba(255,120,200,.06), transparent 55%),
+      linear-gradient(180deg,#050505,#0b0b0b 55%,#070707);z-index:-1;}
+    .wrap{min-height:100%;display:grid;place-items:start center;padding:8vh 16px 6vh;box-sizing:border-box;}
+    .panel{width:min(780px,100%);display:flex;flex-direction:column;align-items:center;gap:14px;}
+    .appTitle{font-weight:800;font-size:22px;letter-spacing:.02em;text-align:center;}
+    .searchRow{width:min(680px,100%);position:relative;}
+    .search{width:100%;box-sizing:border-box;padding:16px 18px;border-radius:999px;border:1px solid rgba(255,255,255,.14);
+      background:rgba(0,0,0,.35);color:var(--text);outline:none;box-shadow:var(--shadow);backdrop-filter:blur(10px);font-size:16px;}
+    .search::placeholder{color:rgba(244,244,244,.55);}
+    .hint{margin-top:8px;text-align:center;color:var(--muted);font-size:13px;}
+    .ladder{width:min(680px,100%);display:flex;flex-direction:column;align-items:center;gap:14px;margin-top:6px;}
+    .choiceRow{width:100%;display:flex;gap:14px;justify-content:center;opacity:0;transform:translateY(-10px);
+      transition:opacity .25s ease, transform .25s ease;pointer-events:none;}
+    .choiceRow.show{opacity:1;transform:translateY(0);pointer-events:auto;}
+    .btn{flex:1;max-width:320px;padding:14px 16px;border-radius:var(--radius);border:1px solid rgba(255,255,255,.14);
+      background:var(--btn);color:var(--text);cursor:pointer;box-shadow:var(--shadow);backdrop-filter:blur(10px);
+      transition:transform .2s ease, background .2s ease, border-color .2s ease, opacity .2s ease;font-size:16px;text-align:center;user-select:none;}
+    .btn:hover{background:var(--btnHover);transform:translateY(-1px);}
+    .btn:active{transform:translateY(0px) scale(.995);}
+    .winner{max-width:420px;border-color:rgba(120,220,255,.55);box-shadow:0 0 0 1px rgba(120,220,255,.25), var(--shadow);}
+    .fadeOut{opacity:0 !important;transform:translateY(-6px) scale(.98) !important;pointer-events:none !important;}
+    .results{width:min(780px,100%);margin-top:18px;padding:14px;border-radius:18px;border:1px solid rgba(255,255,255,.12);
+      background:rgba(0,0,0,.25);box-shadow:var(--shadow);backdrop-filter:blur(10px);}
+    .resultsHeader{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:8px;}
+    .pill{padding:6px 10px;border-radius:999px;font-size:12px;border:1px solid rgba(255,255,255,.14);
+      color:rgba(244,244,244,.82);background:rgba(255,255,255,.06);}
+    .list{display:grid;gap:10px;margin-top:10px;}
+    .card{padding:12px;border-radius:14px;border:1px solid rgba(255,255,255,.10);background:rgba(255,255,255,.04);}
+    .title{font-weight:650;}
+    .meta{margin-top:4px;color:rgba(244,244,244,.70);font-size:13px;}
+    .tags{margin-top:6px;color:rgba(244,244,244,.65);font-size:12px;}
+    .actions{display:flex;gap:10px;justify-content:center;margin-top:10px;}
+    .smallBtn{padding:10px 12px;border-radius:12px;border:1px solid rgba(255,255,255,.14);
+      background:rgba(255,255,255,.06);color:var(--text);cursor:pointer;}
+    .smallBtn:hover{background:rgba(255,255,255,.10);}
+  </style>
+</head>
+<body>
+  <div class="bg"></div>
+  <div class="wrap">
+<div class="panel">
+  <div id="appTitle" class="appTitle">App</div>
+
+  <div class="searchRow">
+    <input id="search" class="search" placeholder="Search a title… (or use the chooser below)" />
+    <div class="hint" id="hint">Loading your Library sheet…</div>
+  </div>
+
+
+      <div class="ladder" id="ladder"></div>
+
+      <div class="results">
+        <div class="resultsHeader">
+          <div>
+            <div style="font-weight:700;">Matches</div>
+            <div class="meta" id="activeFilters">No filters yet.</div>
+          </div>
+          <div class="pill" id="countPill">0</div>
+        </div>
+
+        <div class="actions">
+          <button class="smallBtn" id="reset">Reset choices</button>
+          <button class="smallBtn" id="clearSearch">Clear search</button>
+        </div>
+
+        <div class="list" id="list"></div>
+      </div>
+    </div>
+  </div>
+
+
+  
+<script>
+
+// =====================
+// CONFIG (edit these)
+// =====================
+  
+const APP_TITLE = "Spooky Night";
+const API_BASE = "https://script.google.com/macros/s/AKfycbwr3Jz02d-odK7DfISCMXpion1ojQYLwAM9zqNLPzKmb1sON7xOUkkJORLKYtVF3N6P/exec"; // Apps Script web app URL
+const DEFAULT_BG_HINT = "Answer a few questions or search.";
+const MAX_RESULTS = 30;
+
+
+// TREE = binary decision ladder.
+// Each step shows two choices.
+// - label: button text
+// - applyTags: tags added if chosen
+// - next: next node id, or null to end
+
+const TREE = {
+    start: { options: [
+      { label: "Option A", applyTags: ["a"], next: "step2" },
+      { label: "Option B", applyTags: ["b"], next: "step2" }
+    ]},
+    step2: { options: [
+      { label: "Option C", applyTags: ["c"], next: null },
+      { label: "Option D", applyTags: ["d"], next: null }
+    ]}
+  };
+  
+
+// =====================
+// APP
+// =====================
+  document.title = APP_TITLE;
+  const appTitleEl = document.getElementById("appTitle");
+  if (appTitleEl) appTitleEl.textContent = APP_TITLE;
+
+
+  let LIBRARY = [];
+  const state = { nodeId:"start", chosen:[], activeTags:new Set(), search:"" };
+
+  const ladderEl = document.getElementById("ladder");
+  const listEl = document.getElementById("list");
+  const countPill = document.getElementById("countPill");
+  const activeFiltersEl = document.getElementById("activeFilters");
+  const searchEl = document.getElementById("search");
+  const hintEl = document.getElementById("hint");
+
+  hintEl.textContent = "Loading your Library sheet…";
+
+  document.getElementById("reset").addEventListener("click", () => {
+    state.nodeId="start"; state.chosen=[]; state.activeTags=new Set(); render();
+  });
+  document.getElementById("clearSearch").addEventListener("click", () => {
+    state.search=""; searchEl.value=""; renderResults();
+  });
+  searchEl.addEventListener("input", (e) => {
+    state.search = e.target.value.trim().toLowerCase();
+    renderResults();
+  });
+
+  function applyTags(tags){ (tags||[]).forEach(t => state.activeTags.add(t)); }
+  function humanFilters(){ return state.chosen.length ? ("Path: " + state.chosen.map(c=>c.label).join(" → ")) : "No filters yet."; }
+
+  // NOTE: This is AND logic. If you need OR groups (e.g., tv_episode OR tv_series), extend here.
+  function matchesTags(item){
+    const active = Array.from(state.activeTags);
+    if (!active.length) return true;
+    const tags = item.tags || [];
+    return active.every(t => tags.includes(t));
+  }
+  function matchesSearch(item){
+    if (!state.search) return true;
+    return (item.Display || item.Title || "").toString().toLowerCase().includes(state.search);
+  }
+  function getMatches(){ return LIBRARY.filter(it => matchesTags(it) && matchesSearch(it)); }
+
+  function render(){ renderLadder(); renderResults(); }
+
+  function renderLadder(){
+    ladderEl.innerHTML = "";
+
+    state.chosen.forEach((c) => {
+      const row = document.createElement("div"); row.className="choiceRow show";
+      const btn = document.createElement("div"); btn.className="btn winner"; btn.textContent=c.label;
+      row.appendChild(btn); ladderEl.appendChild(row);
+    });
+
+    const node = TREE[state.nodeId];
+    if (!node) return;
+
+    const row = document.createElement("div"); row.className="choiceRow";
+    const [a,b] = node.options;
+    row.appendChild(makeChoiceButton(a,row));
+    row.appendChild(makeChoiceButton(b,row));
+    ladderEl.appendChild(row);
+    requestAnimationFrame(()=>row.classList.add("show"));
+  }
+
+  function makeChoiceButton(option, rowEl){
+    const btn = document.createElement("div");
+    btn.className="btn"; btn.textContent=option.label;
+    btn.addEventListener("click", () => {
+      const siblings = Array.from(rowEl.children);
+      const loser = siblings.find(el => el !== btn);
+      btn.classList.add("winner");
+      if (loser) loser.classList.add("fadeOut");
+
+      setTimeout(() => {
+        const tags = option.applyTags || [];
+        state.chosen.push({ label: option.label, applyTags: tags });
+        applyTags(tags);
+        state.nodeId = (option.next === null) ? "__end__" : (option.next || "start");
+        render();
+      }, 220);
+    });
+    return btn;
+  }
+
+  function renderResults(){
+    const matches = getMatches();
+    countPill.textContent = `${matches.length}`;
+    activeFiltersEl.textContent = humanFilters();
+
+    listEl.innerHTML = "";
+    if (!matches.length){
+      const empty = document.createElement("div");
+      empty.className="meta";
+      empty.textContent="No matches yet. Try fewer choices or use search.";
+      listEl.appendChild(empty);
+      return;
+    }
+
+    matches.slice(0, MAX_RESULTS).forEach(item => {
+      const card = document.createElement("div"); card.className="card";
+      const title = document.createElement("div"); title.className="title"; title.textContent = item.Display || item.Title || "";
+      const meta = document.createElement("div"); meta.className="meta";
+      meta.textContent = `${(item.Type||"").toString().replaceAll("_"," ")} • ${(item.Holiday||"")}`;
+      const tags = document.createElement("div"); tags.className="tags"; tags.textContent = (item.tags||[]).join("  ");
+      card.appendChild(title); card.appendChild(meta); card.appendChild(tags);
+      listEl.appendChild(card);
+    });
+
+    if (matches.length > MAX_RESULTS){
+      const more = document.createElement("div");
+      more.className="meta";
+      more.textContent = `Showing first ${MAX_RESULTS} of ${matches.length}. Narrow choices or search to reduce.`;
+      listEl.appendChild(more);
+    }
+  }
+
+  // JSONP loader (CORS-safe)
+  function loadLibrary(){
+    const cbName = "onLibraryLoaded_" + Date.now();
+    window[cbName] = (json) => {
+      try {
+        if (!json || !json.ok) throw new Error("API returned not ok");
+
+        LIBRARY = (json.rows || []).map(r => ({
+          ...r,
+          Title: r.Title || r.Display || "",
+          Display: r.Display || r.Title || "",
+          Type: (r.Type || "").toString().toLowerCase(),
+          Holiday: (r.Holiday || "").toString().toLowerCase(),
+          tags: Array.isArray(r.tags)
+            ? r.tags
+            : (typeof r.Tags === "string" ? r.Tags.split(",").map(x=>x.trim()).filter(Boolean) : [])
+        }));
+
+        hintEl.textContent = DEFAULT_BG_HINT;
+        render();
+      } catch (e) {
+        hintEl.textContent = "Library load failed: " + (e?.message || String(e));
+        console.error(e);
+      } finally {
+        delete window[cbName];
+      }
+    };
+
+    const script = document.createElement("script");
+    script.src = `${API_BASE}?api=1&callback=${cbName}&t=${Date.now()}`;
+    script.async = true;
+    script.onerror = () => { hintEl.textContent = "Library load failed: script load error."; };
+    document.head.appendChild(script);
+  }
+
+  loadLibrary();
+</script>
+
+</body>
+</html>
