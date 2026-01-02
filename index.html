@@ -50,7 +50,7 @@
 </head>
 <body>
   <div id="status"<Ready.</div>
-    <ul id="list></ul>
+    <ul id="jsonpList"></ul>
   <div class="bg"></div>
   <div class="wrap">
 <div class="panel">
@@ -95,8 +95,6 @@ const APP_TITLE = "Spooky Night";
 const API_BASE = "https://script.google.com/macros/s/AKfycbwr3Jz02d-odK7DfISCMXpion1ojQYLwAM9zqNLPzKmb1sON7xOUkkJORLKYtVF3N6P/exec"; // Apps Script web app URL
 const DEFAULT_BG_HINT = "Answer a few questions or search.";
 const MAX_RESULTS = 30;
-const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwr3Jz02d-odK7DfISCMXpion1ojQYLwAM9zqNLPzKmb1sON7xOUkkJORLKYtVF3N6P/exec";
-const CALLBACK_NAME = "__jsonp_cb";
 
 
 // TREE = binary decision ladder.
@@ -120,8 +118,7 @@ const TREE = {
 // =====================
 // APP
 // =====================
-    const statusEl = document.getElementById("status");
-  const listEl = document.getElementById("list");
+  const statusEl = document.getElementById("status");
 
   function setStatus(msg) { statusEl.textContent = msg; }
 
