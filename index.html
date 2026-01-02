@@ -49,6 +49,8 @@
   </style>
 </head>
 <body>
+  <div id="status"<Ready.</div>
+    <ul id="list></ul>
   <div class="bg"></div>
   <div class="wrap">
 <div class="panel">
@@ -93,6 +95,8 @@ const APP_TITLE = "Spooky Night";
 const API_BASE = "https://script.google.com/macros/s/AKfycbwr3Jz02d-odK7DfISCMXpion1ojQYLwAM9zqNLPzKmb1sON7xOUkkJORLKYtVF3N6P/exec"; // Apps Script web app URL
 const DEFAULT_BG_HINT = "Answer a few questions or search.";
 const MAX_RESULTS = 30;
+const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwr3Jz02d-odK7DfISCMXpion1ojQYLwAM9zqNLPzKmb1sON7xOUkkJORLKYtVF3N6P/exec";
+const CALLBACK_NAME = "__jsonp_cb";
 
 
 // TREE = binary decision ladder.
@@ -116,6 +120,56 @@ const TREE = {
 // =====================
 // APP
 // =====================
+    const statusEl = document.getElementById("status");
+  const listEl = document.getElementById("list");
+
+  function setStatus(msg) { statusEl.textContent = msg; }
+
+  function clearList() { listEl.innerHTML = ""; }
+
+  function renderRows(rows) {
+    clearList();
+    if (!rows || !rows.length) {
+      setStatus("No rows returned.");
+      return;
+    }
+    // Minimal render: each row becomes one <li>
+    rows.forEach((row) => {
+      const li = document.createElement("li");
+      li.textContent = Array.isArray(row) ? row.join(" • ") : JSON.stringify(row);
+      listEl.appendChild(li);
+    });
+    setStatus(`Loaded ${rows.length} row(s).`);
+  }
+
+  // JSONP callback (global)
+  window[CALLBACK_NAME] = function (payload) {
+    try {
+      // If your payload is already { rows: [...] }, great.
+      // If it’s just an array, also fine.
+      const rows = Array.isArray(payload) ? payload : (payload && payload.rows) || [];
+      renderRows(rows);
+    } catch (e) {
+      console.error(e);
+      setStatus("Render error. Check console.");
+    } finally {
+      // Cleanup script tag
+      const s = document.getElementById("jsonp-script");
+      if (s) s.remove();
+    }
+  };
+
+  function jsonpFetch() {
+    setStatus("Loading…");
+    const s = document.createElement("script");
+    s.id = "jsonp-script";
+    s.src = `${WEB_APP_URL}?callback=${encodeURIComponent(CALLBACK_NAME)}`;
+    s.onerror = () => setStatus("Network/script error. Check URL/deploy.");
+    document.body.appendChild(s);
+  }
+
+  // Fire once on load (ritual: immediate feedback)
+  jsonpFetch();
   document.title = APP_TITLE;
   const appTitleEl = document.getElementById("appTitle");
   if (appTitleEl) appTitleEl.textContent = APP_TITLE;
